@@ -103,11 +103,9 @@ open class BaseHTTPProvider: @unchecked Sendable {
         progress: (@Sendable (UploadProgress) -> Void)?
     ) async throws -> (Data, URLResponse) {
         let startTime = Date()
-        var uploadedBytes: Int64 = 0
 
         return try await withCheckedThrowingContinuation { continuation in
             let delegate = UploadProgressDelegate(totalBytes: totalBytes) { uploaded in
-                uploadedBytes = uploaded
                 let elapsed = Date().timeIntervalSince(startTime)
                 let speed = elapsed > 0 ? Double(uploaded) / elapsed : 0
                 progress?(UploadProgress(bytesUploaded: uploaded,

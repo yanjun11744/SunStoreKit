@@ -173,7 +173,7 @@ public final class WebDAVProvider: BaseHTTPProvider, StorageProvider, @unchecked
             // 先检查是否存在
             if (try? await fileExists(at: currentPath)) == true { continue }
 
-            var request = makeRequest(url: url, method: "MKCOL")
+            let request = makeRequest(url: url, method: "MKCOL")
             let (_, response) = try await session.data(for: request)
             if let httpResponse = response as? HTTPURLResponse,
                httpResponse.statusCode != 201 && httpResponse.statusCode != 405 {
@@ -187,7 +187,7 @@ public final class WebDAVProvider: BaseHTTPProvider, StorageProvider, @unchecked
         guard let url = URL(string: configuration.baseURL.absoluteString + path) else {
             throw StorageError.invalidConfiguration("Invalid path: \(path)")
         }
-        var request = makeRequest(url: url, method: "DELETE")
+        let request = makeRequest(url: url, method: "DELETE")
         let (data, response) = try await session.data(for: request)
         if let error = parseHTTPError(response, body: data) { throw error }
     }

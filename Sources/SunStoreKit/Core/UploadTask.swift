@@ -171,3 +171,9 @@ public actor UploadQueue {
         uploadTask.updateState(.failed(lastError))
     }
 }
+
+extension UploadResult: Equatable {
+    public static func == (lhs: UploadResult, rhs: UploadResult) -> Bool {
+        lhs.remoteInfo.path == rhs.remoteInfo.path && lhs.duration == rhs.duration
+    }
+}

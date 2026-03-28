@@ -101,17 +101,17 @@ public struct UploadResult: Sendable {
 
 public enum StorageError: Error, Sendable {
     case authenticationFailed(String)
-    case connectionFailed(underlying: Error)
+    case connectionFailed(underlying: any Error)
     case fileNotFound(path: String)
     case permissionDenied(path: String)
     case quotaExceeded
     case fileAlreadyExists(path: String)
     case invalidConfiguration(String)
-    case uploadFailed(reason: String, underlying: Error?)
+    case uploadFailed(reason: String, underlying: (any Error)?)
     case checksumMismatch(expected: String, actual: String)
     case unsupportedOperation(String)
     case cancelled
-    case unknown(Error)
+    case unknown(any Error)
 }
 
 // MARK: - 核心存储协议（Layer 1）
@@ -191,4 +191,25 @@ public struct StorageCapabilities: Sendable, OptionSet {
 
 public protocol CapableStorageProvider: StorageProvider {
     var capabilities: StorageCapabilities { get }
+}
+
+extension StorageError: Equatable {
+    public static func == (lhs: StorageError, rhs: StorageError) -> Bool {
+        switch (lhs, rhs) {
+        case (.authenticationFailed(let a), .authenticationFailed(let b)): return a == b
+        case (.fileNotFound(let a), .fileNotFound(let b)): return a == b
+        case (.permissionDenied(let a), .permissionDenied(let b)): return a == b
+        case (.quotaExceeded, .quotaExceeded): return true
+        case (.fileAlreadyExists(let a), .fileAlreadyExists(let b)): return a == b
+        case (.invalidConfiguration(let a), .invalidConfiguration(let b)): return a == b
+        case (.uploadFailed(let a, _), .uploadFailed(let b, _)): return a == b
+        case (.checksumMismatch(let a1, let a2), .checksumMismatch(let b1, let b2)): return a1 == b1 && a2 == b2
+        case (.unsupportedOperation(let a), .unsupportedOperation(let b)): return a == b
+        case (.cancelled, .cancelled): return true
+        // Error 类型无法通用比较，降级为 false
+        case (.connectionFailed, .connectionFailed): return false
+        case (.unknown, .unknown): return false
+        default: return false
+        }
+    }
 }

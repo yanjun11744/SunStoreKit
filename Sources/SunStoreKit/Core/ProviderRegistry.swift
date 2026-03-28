@@ -96,14 +96,14 @@ public extension StorageProviderRegistry {
     }
 
     /// 注册 S3
-    @discardableResult
-    func registerS3(
-        id: String = "s3", displayName: String = "S3", configuration: S3Configuration
-    ) -> S3Provider {
-        let provider = S3Provider(id: id, displayName: displayName, configuration: configuration)
-        register(provider)
-        return provider
-    }
+//    @discardableResult
+//    func registerS3(
+//        id: String = "s3", displayName: String = "S3", configuration: S3Configuration
+//    ) -> S3Provider {
+//        let provider = S3Provider(id: id, displayName: displayName, configuration: configuration)
+//        register(provider)
+//        return provider
+//    }
 }
 
 // MARK: - 常见 WebDAV 服务预设
