@@ -319,6 +319,12 @@ struct UploadServiceTests {
             configuration: UploadServiceConfiguration(
                 baseFolder: "/test",
                 pathStrategy: pathStrategy,
+                // retryCount: 0 避免失败测试因重试等待数秒
+                queueConfig: UploadQueue.Configuration(
+                    maxConcurrentUploads: 3,
+                    retryCount: 0,
+                    retryDelay: 0
+                ),
                 allowedMediaTypes: allowedTypes,
                 maxFileSizeBytes: maxFileSize,
                 skipAlreadyUploaded: skipDuplicates,
@@ -435,22 +441,33 @@ struct UploadServiceTests {
         let tempFile = makeTempFile()
         defer { try? FileManager.default.removeItem(at: tempFile) }
 
-        let item = MockUploadItem(id: "dedup-1", filename: "dup.jpg", localURL: tempFile)
+        let item = MockUploadItem(id: "dedup-\(UUID().uuidString)", filename: "dup.jpg", localURL: tempFile)
 
         // 第一次上传
         let task1 = try await service.upload(item: item)
         _ = await waitForTerminal(task1)
-        try await Task.sleep(nanoseconds: 100_000_000)  // 等待记录持久化
+        try await Task.sleep(nanoseconds: 200_000_000)  // 等待 actor 内记录写入
 
         // 第二次应被跳过
-        await #expect(throws: UploadServiceError.self) {
+        do {
             _ = try await service.upload(item: item)
+            Issue.record("第二次上传应被过滤")
+        } catch UploadServiceError.itemFiltered(let reason) {
+            guard case .skippedAlreadyUploaded = reason else {
+                Issue.record("过滤原因不对：\(reason)")
+                return
+            }
         }
 
         // 清除历史后可重新上传
         await service.clearUploadHistory()
+        try await Task.sleep(nanoseconds: 100_000_000)
         let task3 = try await service.upload(item: item)
-        #expect(task3.id != UUID())
+        let finalState = await waitForTerminal(task3)
+        guard case .completed = finalState else {
+            Issue.record("清除历史后重新上传应成功，实际：\(finalState)")
+            return
+        }
     }
 
     // MARK: 失败处理
@@ -667,20 +684,15 @@ struct MockStorageProviderTests {
         let tempFile = makeTempFile()
         defer { try? FileManager.default.removeItem(at: tempFile) }
 
-        // ProgressCollector actor 避免 @Sendable 闭包中直接修改外部 var
-        actor ProgressCollector {
-            var items: [UploadProgress] = []
-            func append(_ p: UploadProgress) { items.append(p) }
-        }
-        let collector = ProgressCollector()
-
+        // MockStorageProvider.upload 是串行的，progress 回调在 upload 返回前同步触发
+        // 用 nonisolated(unsafe) 标记，告知编译器这里不存在真正的并发写入
+        nonisolated(unsafe) var reports: [UploadProgress] = []
         let request = UploadRequest(
             localURL: tempFile, remotePath: "/r/progress.jpg", contentType: "image/jpeg")
         _ = try await provider.upload(request) { p in
-            Task { await collector.append(p) }
+            reports.append(p)
         }
 
-        let reports = await collector.items
         #expect(!reports.isEmpty)
         #expect(reports.last?.fractionCompleted == 1.0)
     }
